@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # rarefyr
 
 A lightweight R package for rarefaction curves and plots from OTU/ASV
@@ -37,3 +38,8 @@ rarefaction (subsampling *without* replacement / hypergeometric), which
 also covers `vegan`, it's worth having students compare the two as an
 exercise — a nice way to make the without-replacement vs
 with-replacement distinction concrete.
+=======
+RarefactionR
+
+A lightweight package designed to be used with Google Colab for teaching. Performs rarefaction and produces a rarefaction plot.
+>>>>>>> faf1b8026d64e8c60461bbe70e45a71fba5274f9
