@@ -1,11 +1,21 @@
-Package: rarefactionR
-Title: What the Package Does (One Line, Title Case)
-Version: 0.0.0.9000
-Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
-Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+Package: rarefyr
+Title: Lightweight Rarefaction Curves and Plots for Microbiome Data
+Version: 0.1.0
+Authors@R: person("Toryn", "Poolman", email = "t.poolman@ucl.ac.uk", role = c("aut", "cre"))
+Description: A small, teaching-oriented package for computing and
+    plotting rarefaction curves from OTU/ASV count tables. Designed to
+    be readable and hackable rather than exhaustive -- a lightweight
+    alternative to pulling in vegan/phyloseq just for a rarefaction
+    plot in a teaching context.
+License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
+RoxygenNote: 7.3.1
+Imports:
+    dplyr,
+    tibble,
+    ggplot2,
+    stats
+Suggests:
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
