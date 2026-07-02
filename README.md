@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # rarefyr
 
 A lightweight R package for rarefaction curves and plots from OTU/ASV
@@ -11,7 +10,7 @@ count tables — built for teaching, not as a vegan/phyloseq replacement.
 devtools::install("path/to/rarefyr")
 
 # or, once on GitHub
-# devtools::install_github("yourname/rarefyr")
+# devtools::install_github("toryn13/rarefyr")
 ```
 
 ## Usage
