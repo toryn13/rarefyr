@@ -28,16 +28,7 @@ plot_rarefaction(curve)
 plot_rarefaction(curve, metadata = sample_metadata, group_var = "treatment")
 ```
 
-## Note on statistical accuracy
 
-This uses resampling *with* replacement (multinomial), which is the
-standard approximation used in most teaching contexts and is what the
-original code was attempting. It is a close approximation to "true"
-rarefaction (subsampling *without* replacement / hypergeometric), which
-`vegan::rarefy()` computes exactly and analytically. For a course that
-also covers `vegan`, it's worth having students compare the two as an
-exercise — a nice way to make the without-replacement vs
-with-replacement distinction concrete.
 
 
 
