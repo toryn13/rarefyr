@@ -1,7 +1,7 @@
 # rarefyr
 
 A lightweight R package for rarefaction curves and plots from OTU/ASV
-count tables — built for teaching, not as a vegan/phyloseq replacement.
+count tables, built for teaching in Colab, not as a vegan/phyloseq replacement.
 
 ## Install
 
