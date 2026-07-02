@@ -6,11 +6,9 @@ count tables, built for teaching in Colab, not as a vegan/phyloseq replacement.
 ## Install
 
 ```r
-# from a local clone / unzipped folder
-devtools::install("path/to/rarefyr")
+install.packages("remotes")  # if not already available
+remotes::install_github("toryn13/rarefyr")
 
-# or, once on GitHub
-# devtools::install_github("toryn13/rarefyr")
 ```
 
 ## Usage
