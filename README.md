@@ -17,7 +17,7 @@ remotes::install_github("toryn13/rarefyr")
 library(rarefyr)
 
 # otu_table: taxa/OTUs in rows, samples in columns, row names = OTU IDs
-curve <- rarefy_curve(otu_table, num_iterations = 20, seed = 1)
+curve <- rarefy_curve(otu_table, num_iterations = 20, seed = 2026)
 
 plot_rarefaction(curve)
 
