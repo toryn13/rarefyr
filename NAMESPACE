@@ -2,6 +2,7 @@
 # devtools::document() once you add/change functions.
 export(rarefy_curve)
 export(plot_rarefaction)
+export(process_stats)
 importFrom(stats,rmultinom)
 importFrom(stats,sd)
 importFrom(tibble,tibble)
