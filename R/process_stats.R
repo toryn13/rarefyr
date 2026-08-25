@@ -28,9 +28,6 @@ process_stats <- function(directory, maxEE_level, output_csv = "maxEE_summary.cs
     stop("No .stats files found")
   }
 
-  # Matches rows like:
-  #     50        376( 94.5%)        376( 94.5%)        376( 94.5%)
-  # Tolerates any amount of whitespace, including between "(" and the number.
   row_pattern <- paste0(
     "^\\s*(\\d+)\\s+",
     "(\\d+)\\(\\s*[\\d.]+%\\)\\s+",
@@ -44,11 +41,11 @@ process_stats <- function(directory, maxEE_level, output_csv = "maxEE_summary.cs
     filepath <- file.path(directory, filename)
     lines <- readLines(filepath, warn = FALSE)
 
-    matches <- regmatches(lines, regexec(row_pattern, lines))
-    matches <- matches[lengths(matches) == 5]  # full match + 4 capture groups
+    matches <- regmatches(lines, regexec(row_pattern, lines, perl = TRUE))
+    matches <- matches[lengths(matches) == 5]
 
     if (length(matches) == 0) {
-      next  # no valid data rows in this file
+      next
     }
 
     df <- do.call(rbind, lapply(matches, function(m) {
@@ -72,7 +69,6 @@ process_stats <- function(directory, maxEE_level, output_csv = "maxEE_summary.cs
   maxEE_summary <- do.call(rbind, dfs)
   rownames(maxEE_summary) <- NULL
 
-  # Warn if MaxEE2 is saturated (useful for users)
   if (maxEE_level == "MaxEE2") {
     max_by_file <- tapply(maxEE_summary[[maxEE_level]], maxEE_summary$File, max)
     min_by_file <- tapply(maxEE_summary[[maxEE_level]], maxEE_summary$File, min)
