@@ -23,6 +23,11 @@ plot_rarefaction(curve)
 
 # colour by a metadata grouping variable instead of by sample
 plot_rarefaction(curve, metadata = sample_metadata, group_var = "treatment")
+
+ process_stats(directory, maxEE_level, output_csv = "maxEE_summary.csv")
+
+# Process VSEARCH stats files
+stats_info <- process_stats(directory, MaxEE1) 
 ```
 
 
