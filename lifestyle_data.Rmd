@@ -1,0 +1,422 @@
+---
+title: "lifestyle_data_analysis"
+output: html_document
+date: "2026-08-24"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Packages ---------------------------------------------------------------
+# install.packages(c("tidyverse","readxl","janitor","gtsummary","gt",
+#                     "corrplot","GGally","skimr"))
+
+library(tidyverse)   
+library(readxl)      
+library(janitor)     
+library(gtsummary)   
+library(gt)          
+library(corrplot)    
+library(GGally)      
+library(skimr)       
+```
+
+# 1. Import and Tidy
+
+## 1b) Import the data
+
+Adjust the path/filename to wherever you saved the file. Use ONE of the
+two import lines below depending on whether you have the `.csv` or `.xlsx`
+version.
+
+```{r import}
+# CSV version
+lifestyledata <- read_csv("lifestyle.csv") %>% clean_names()
+
+# XLSX version (uncomment if using Excel file instead)
+# lifestyledata <- read_excel("lifestyle.xlsx") %>% clean_names()
+
+glimpse(lifestyledata)
+```
+
+`clean_names()` converts columns like "BMI", "Weight (kg)" into consistent
+lower_snake_case names (e.g. `bmi`, `weight_kg`). Check `names(lifestyledata)`
+after import and adjust the variable names used below (I have used `bmi`,
+`age`, `weight`, `id`, `year` as placeholders — rename to match your data).
+
+```{r check-names}
+names(lifestyledata)
+```
+
+## 1a/c) Structure and missing values
+
+```{r structure}
+str(lifestyledata)
+
+# Overview of structure + missingness for every variable
+skim(lifestyledata)
+
+# Total missing values across the whole dataset
+sum(is.na(lifestyledata))
+
+# Missing values per column
+colSums(is.na(lifestyledata))
+```
+
+## 1b) Number of subjects
+
+```{r n-subjects}
+lifestyledata %>%
+  summarise(n_subjects = n_distinct(id))
+```
+
+## 1c) Number and list of timepoints
+
+```{r timepoints}
+lifestyledata %>%
+  summarise(n_timepoints = n_distinct(year))
+
+lifestyledata %>%
+  distinct(year) %>%
+  arrange(year)
+```
+
+# 2. Transform
+
+## 2a) Create categories for a continuous variable (BMI)
+
+Standard WHO-style cut-points are used here as an example
+(Low < 18.5, Medium 18.5–24.9, High ≥ 25). Adjust the breaks/labels to
+whatever definition your assignment/brief specifies.
+
+```{r bmi-categories}
+lifestyledata <- lifestyledata %>%
+  mutate(
+    bmi_category = cut(
+      bmi,
+      breaks = c(-Inf, 18.5, 25, Inf),
+      labels = c("Low", "Medium", "High"),
+      right = FALSE
+    )
+  )
+
+# Check the counts in each category
+table(lifestyledata$bmi_category, useNA = "ifany")
+```
+
+# 3. Summarise
+
+## 3a) Summary table for continuous variables by year
+
+Base R `summary()` for a quick look (matches the Min/1stQ/Median/Mean/3rdQ/Max
+style shown in the brief):
+
+```{r base-summary}
+summary(lifestyledata$bmi)
+summary(lifestyledata$age)
+summary(lifestyledata$weight)
+```
+
+A tidy summary **by year**, including mean, median, IQR, min and max for
+several continuous variables at once:
+
+```{r summary-by-year}
+lifestyledata %>%
+  group_by(year) %>%
+  summarise(
+    across(
+      c(bmi, age, weight),
+      list(
+        mean   = ~mean(.x, na.rm = TRUE),
+        median = ~median(.x, na.rm = TRUE),
+        IQR    = ~IQR(.x, na.rm = TRUE),
+        min    = ~min(.x, na.rm = TRUE),
+        max    = ~max(.x, na.rm = TRUE)
+      ),
+      .names = "{.col}_{.fn}"
+    ),
+    .groups = "drop"
+  )
+```
+
+## 3b) Publication-quality summary table
+
+`gtsummary::tbl_summary()` produces a clean, journal-style table, split by
+year, with median (IQR) and range by default:
+
+```{r gtsummary-table}
+lifestyledata %>%
+  select(year, bmi, age, weight) %>%
+  tbl_summary(
+    by = year,
+    statistic = all_continuous() ~ "{mean} ({sd}); {median} [{p25}, {p75}]; range {min}-{max}",
+    missing = "ifany",
+    label = list(
+      bmi ~ "BMI (kg/m²)",
+      age ~ "Age (years)",
+      weight ~ "Weight (kg)"
+    )
+  ) %>%
+  add_n() %>%
+  modify_header(label ~ "**Variable**") %>%
+  modify_caption("**Table 1. Participant characteristics by year**") %>%
+  bold_labels()
+```
+
+# 4. Visualise
+
+## 4a) Correlation matrix
+
+Select the continuous variables of interest, drop missing values pairwise,
+compute the correlation matrix, and plot it.
+
+```{r correlation-matrix}
+cont_vars <- lifestyledata %>%
+  select(bmi, age, weight) # add more continuous variables as needed, e.g. hba1c, waist
+
+cor_matrix <- cor(cont_vars, use = "pairwise.complete.obs")
+cor_matrix
+
+corrplot(
+  cor_matrix,
+  method = "color",
+  type = "upper",
+  addCoef.col = "black",
+  tl.col = "black",
+  tl.srt = 45,
+  diag = FALSE,
+  title = "Correlation matrix of continuous variables",
+  mar = c(0, 0, 2, 0)
+)
+```
+
+An alternative pairwise scatterplot + correlation matrix using `GGally`:
+
+```{r ggpairs}
+ggpairs(cont_vars, progress = FALSE) +
+  theme_minimal()
+```
+
+**Interpretation:** Look at the printed `cor_matrix` and the plot above —
+report which pairs of variables have |r| > 0.7 (commonly treated as "highly
+correlated"), e.g. weight and BMI are often strongly correlated since BMI is
+derived directly from weight and height.
+
+## 4a) Distribution plots
+
+Histograms (with density overlay) for several continuous variables at once.
+Using `pivot_longer()` lets you facet by variable rather than writing a
+separate `ggplot()` call for each one.
+
+```{r distribution-plots, fig.width=8, fig.height=6}
+lifestyledata %>%
+  select(bmi, age, weight) %>%
+  pivot_longer(everything(), names_to = "variable", values_to = "value") %>%
+  ggplot(aes(x = value)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 30,
+                  fill = "steelblue", colour = "white", alpha = 0.8) +
+  geom_density(colour = "darkred", linewidth = 0.8) +
+  facet_wrap(~ variable, scales = "free") +
+  theme_minimal() +
+  labs(title = "Distribution of continuous variables",
+       x = NULL, y = "Density")
+```
+
+Boxplots are a quick complementary way to check skew/outliers:
+
+```{r distribution-boxplots, fig.width=8, fig.height=4}
+lifestyledata %>%
+  select(bmi, age, weight) %>%
+  pivot_longer(everything(), names_to = "variable", values_to = "value") %>%
+  ggplot(aes(x = variable, y = value)) +
+  geom_boxplot(fill = "steelblue", alpha = 0.7) +
+  facet_wrap(~ variable, scales = "free") +
+  theme_minimal() +
+  labs(title = "Boxplots of continuous variables", x = NULL, y = NULL)
+```
+
+## 4b) Do any variables need transforming?
+
+Check skewness numerically as well as visually — as a rough guide, skewness
+> |1| is often considered notably skewed and may benefit from a
+transformation (e.g. log2, log10, or square-root) to better approximate a
+normal distribution for downstream parametric tests.
+
+```{r skewness}
+# install.packages("e1071") if not already installed
+library(e1071)
+
+lifestyledata %>%
+  summarise(
+    across(c(bmi, age, weight), ~ skewness(.x, na.rm = TRUE))
+  )
+```
+
+If a variable (e.g. `weight` or `bmi`) is notably right-skewed, create a
+log-transformed version and compare the distributions:
+
+```{r log-transform, fig.width=8, fig.height=4}
+lifestyledata <- lifestyledata %>%
+  mutate(log2_weight = log2(weight))
+
+# Before vs after, side by side
+p1 <- ggplot(lifestyledata, aes(x = weight)) +
+  geom_histogram(bins = 30, fill = "steelblue", colour = "white") +
+  theme_minimal() +
+  labs(title = "Weight (untransformed)", x = "Weight (kg)")
+
+p2 <- ggplot(lifestyledata, aes(x = log2_weight)) +
+  geom_histogram(bins = 30, fill = "darkorange", colour = "white") +
+  theme_minimal() +
+  labs(title = "Weight (log2 transformed)", x = "log2(Weight)")
+
+# install.packages("patchwork") if not already installed
+library(patchwork)
+p1 + p2
+```
+
+**Interpretation:** Report the skewness values, note which variable(s) are
+skewed, and comment on whether the log2 transform brings the distribution
+closer to symmetric/normal.
+
+## 4c) Boxplot/bar graph of variables against a dependent (grouping) variable
+
+Example using the `bmi_category` created in Section 2a as the grouping
+variable, plotted against a continuous outcome (swap `hba1c` for whatever
+outcome variable you have, or use `gender`/`sex` instead of `bmi_category`).
+
+```{r boxplot-by-group, fig.width=8, fig.height=5}
+lifestyledata %>%
+  select(bmi_category, age, weight) %>%
+  pivot_longer(c(age, weight), names_to = "variable", values_to = "value") %>%
+  ggplot(aes(x = bmi_category, y = value, fill = bmi_category)) +
+  geom_boxplot(alpha = 0.8) +
+  facet_wrap(~ variable, scales = "free_y") +
+  theme_minimal() +
+  labs(title = "Age and Weight by BMI category",
+       x = "BMI category", y = NULL, fill = "BMI category")
+```
+
+If your dependent variable is categorical with counts rather than a
+continuous spread (e.g. comparing group sizes), a bar graph is more
+appropriate:
+
+```{r bargraph-by-group, fig.width=6, fig.height=4}
+lifestyledata %>%
+  count(bmi_category) %>%
+  ggplot(aes(x = bmi_category, y = n, fill = bmi_category)) +
+  geom_col(alpha = 0.8) +
+  theme_minimal() +
+  labs(title = "Number of observations by BMI category",
+       x = "BMI category", y = "Count") +
+  theme(legend.position = "none")
+```
+
+## 4d) Longitudinal change plot
+
+Mean (with error bars, e.g. 95% CI or SE) of a variable such as HbA1c across
+the three years. Swap `hba1c` below for the actual outcome column name in
+your dataset (e.g. `bmi` is used here as a stand-in if HbA1c isn't
+available).
+
+```{r longitudinal-plot, fig.width=7, fig.height=5}
+longitudinal_summary <- lifestyledata %>%
+  group_by(year) %>%
+  summarise(
+    mean_val = mean(bmi, na.rm = TRUE),
+    se_val   = sd(bmi, na.rm = TRUE) / sqrt(sum(!is.na(bmi))),
+    .groups = "drop"
+  )
+
+ggplot(longitudinal_summary, aes(x = factor(year), y = mean_val, group = 1)) +
+  geom_line(colour = "steelblue", linewidth = 1) +
+  geom_point(size = 3, colour = "steelblue") +
+  geom_errorbar(aes(ymin = mean_val - se_val, ymax = mean_val + se_val),
+                width = 0.1, colour = "steelblue") +
+  theme_minimal() +
+  labs(title = "Longitudinal change in mean BMI by year",
+       x = "Year", y = "Mean BMI (± SE)")
+```
+
+For a version showing individual-level trajectories (spaghetti plot) rather
+than just the group mean, useful if you want to visualise within-person
+change over time:
+
+```{r spaghetti-plot, fig.width=7, fig.height=5}
+lifestyledata %>%
+  filter(id %in% sample(unique(id), 100)) %>%  # subsample for readability
+  ggplot(aes(x = factor(year), y = bmi, group = id)) +
+  geom_line(alpha = 0.2, colour = "grey40") +
+  stat_summary(aes(group = 1), fun = mean, geom = "line",
+               colour = "darkred", linewidth = 1.2) +
+  stat_summary(aes(group = 1), fun = mean, geom = "point",
+               colour = "darkred", size = 3) +
+  theme_minimal() +
+  labs(title = "Individual BMI trajectories (sample of 100 participants)\nwith overall mean trend",
+       x = "Year", y = "BMI")
+```
+
+# 5. Statistical analysis
+
+## 5a) Appropriate statistical test
+
+The right test depends on the type of grouping variable and the number of
+groups being compared:
+
+- **Two groups** (e.g. Gender: Male vs Female) → independent-samples
+  **t-test** (if the outcome is approximately normal) or **Wilcoxon rank-sum
+  test** (if skewed/non-normal, per the checks in 4b).
+- **Three or more groups** (e.g. LDL category: Low/Medium/High) → one-way
+  **ANOVA** (parametric) or **Kruskal-Wallis test** (non-parametric),
+  followed by post-hoc pairwise comparisons if the overall test is
+  significant.
+
+First check the assumptions (normality within groups, and homogeneity of
+variance for ANOVA):
+
+```{r assumption-checks}
+# Normality within each group (Shapiro-Wilk; only reliable up to ~5000 obs)
+lifestyledata %>%
+  group_by(bmi_category) %>%
+  summarise(
+    shapiro_p = if (n() >= 3 & n() <= 5000) shapiro.test(age)$p.value else NA_real_
+  )
+
+# Homogeneity of variance across groups
+car::leveneTest(age ~ bmi_category, data = lifestyledata)
+```
+
+**Two-group example (t-test / Wilcoxon):**
+
+```{r ttest-example}
+# Example: effect of a two-level grouping variable (e.g. gender) on a
+# continuous outcome (e.g. hba1c). Replace `gender` and `hba1c` with your
+# actual column names.
+
+# Parametric (if roughly normal, equal variance not assumed by default)
+# t.test(hba1c ~ gender, data = lifestyledata)
+
+# Non-parametric alternative
+# wilcox.test(hba1c ~ gender, data = lifestyledata)
+```
+
+**Three-group example (ANOVA / Kruskal-Wallis) using `bmi_category`:**
+
+```{r anova-example}
+# Parametric: one-way ANOVA
+anova_model <- aov(age ~ bmi_category, data = lifestyledata)
+summary(anova_model)
+
+# Post-hoc pairwise comparisons if ANOVA is significant
+TukeyHSD(anova_model)
+
+# Non-parametric alternative: Kruskal-Wallis
+kruskal.test(age ~ bmi_category, data = lifestyledata)
+```
+
+**Interpretation:** Report the test statistic, degrees of freedom (for
+t-test/ANOVA), and p-value. State whether the result is statistically
+significant at alpha = 0.05, and relate the effect back to the research
+question (e.g. "Age differed significantly across BMI categories,
+F(2, N) = X, p = Y").
