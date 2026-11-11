@@ -1,51 +1,58 @@
-rarefy_curve <- function(otu_table,
-                         max_depth = NULL,
-                         num_iterations = 10,
+#' Rarefy an OTU table to an even sequencing depth
+#'
+#' @param otu_table Count table with taxa as rows and samples as columns.
+#' @param depth Reads to keep per sample. Defaults to the smallest sample total.
+#' @param num_iterations Number of subsampling draws. If > 1, counts are
+#'   averaged across draws (so may be non-integer).
+#' @param seed Optional random seed for reproducibility.
+#'
+#' @return A data frame with the same taxa as `otu_table`, every retained
+#'   sample summing to `depth`. Samples with fewer than `depth` reads are dropped.
+#' @export
+rarefy_table <- function(otu_table,
+                         depth = NULL,
+                         num_iterations = 1,
                          seed = NULL) {
 
   if (!is.null(seed)) set.seed(seed)
 
-  otu_table <- as.data.frame(otu_table)
+  counts <- as.matrix(as.data.frame(otu_table))
 
-  sample_sums <- colSums(otu_table)
-
-  if (is.null(max_depth)) {
-    max_depth <- min(sample_sums)
+  if (!is.numeric(counts) || anyNA(counts) ||
+      any(counts < 0) || any(counts != round(counts))) {
+    stop("`otu_table` must contain non-negative integer counts with no NAs.")
   }
 
-  depths <- unique(round(seq(1, max_depth, length.out = 50)))
+  sample_sums <- colSums(counts)
 
-  out <- lapply(colnames(otu_table), function(sample_name) {
+  if (is.null(depth)) depth <- min(sample_sums)
 
-    sample_data <- otu_table[[sample_name]]
-    sample_depth <- sum(sample_data)
+  keep <- sample_sums >= depth
 
-    if (sample_depth < max_depth) return(NULL)
+  if (!any(keep)) stop("No samples have at least ", depth, " reads.")
 
-    tibble_depths <- lapply(depths, function(depth) {
+  if (any(!keep)) {
+    message("Dropped ", sum(!keep), " sample(s) below depth ", depth, ": ",
+            paste(colnames(counts)[!keep], collapse = ", "))
+  }
 
-      richness_vals <- replicate(
-        num_iterations,
-        {
-          subsampled <- sample(
-            names(sample_data),
-            size = depth,
-            prob = sample_data / sample_depth,
-            replace = TRUE
-          )
-          length(unique(subsampled))
-        }
-      )
+  n_taxa <- nrow(counts)
 
-      tibble::tibble(
-        sample = sample_name,
-        depth = depth,
-        richness = mean(richness_vals)
-      )
-    })
+  out <- vapply(which(keep), function(j) {
 
-    dplyr::bind_rows(tibble_depths)
-  })
+    # one entry per read, labelled by taxon index
+    pool <- rep.int(seq_len(n_taxa), counts[, j])
 
-  dplyr::bind_rows(out)
+    draws <- replicate(
+      num_iterations,
+      tabulate(pool[sample.int(length(pool), depth)], nbins = n_taxa)
+    )
+
+    rowMeans(matrix(draws, nrow = n_taxa))
+  }, numeric(n_taxa))
+
+  out <- matrix(out, nrow = n_taxa,
+                dimnames = list(rownames(counts), colnames(counts)[keep]))
+
+  as.data.frame(out)
 }
