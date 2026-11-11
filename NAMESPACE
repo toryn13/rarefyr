@@ -1,6 +1,7 @@
 # Generated manually to match roxygen tags in R/ -- regenerate with
 # devtools::document() once you add/change functions.
 export(rarefy_curve)
+export(rarefy_table)
 export(plot_rarefaction)
 export(process_stats)
 export(extract_stats_header)
